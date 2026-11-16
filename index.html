@@ -1,0 +1,1195 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f9">
+  <title>QuickDrop</title>
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #20242a;
+      --muted: #69717c;
+      --line: #e1e5ea;
+      --accent: #1769d2;
+      --accent-dark: #1055ad;
+      --danger: #b42318;
+      --success: #137547;
+      --soft-blue: #edf5ff;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+      line-height: 1.55;
+    }
+    button, input, textarea { font: inherit; }
+    button, .button-link {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 650;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 42px;
+    }
+    button:hover, .button-link:hover { background: var(--accent-dark); }
+    button:disabled { opacity: .48; cursor: not-allowed; }
+    button.secondary { background: #edf0f4; color: #252b33; }
+    button.secondary:hover { background: #e1e6ec; }
+    button.danger { background: #fff0ef; color: var(--danger); }
+    button.danger:hover { background: #ffe2df; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid #cfd5dd;
+      border-radius: 10px;
+      padding: 11px 12px;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #1769d21a; }
+    textarea { min-height: 105px; resize: vertical; }
+    .page { width: min(920px, calc(100% - 28px)); margin: 0 auto; padding: 26px 0 54px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+    .brand { display: flex; align-items: center; gap: 11px; }
+    .brand-mark { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: #e8f1ff; color: var(--accent); font-weight: 850; font-size: 19px; }
+    h1 { font-size: 23px; margin: 0; letter-spacing: -.4px; }
+    .tagline { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+    .privacy-note { color: var(--muted); font-size: 12px; text-align: right; }
+    .status { border: 1px solid var(--line); border-radius: 11px; background: #fff; padding: 12px 14px; margin-bottom: 18px; font-size: 14px; }
+    .status.success { color: var(--success); background: #f0faf5; border-color: #c9ead8; }
+    .status.error { color: var(--danger); background: #fff5f4; border-color: #f1d0cc; }
+    .status.info { color: #354052; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 19px; box-shadow: 0 2px 9px #18223008; }
+    .panel h2 { font-size: 17px; margin: 0 0 7px; }
+    .description { color: var(--muted); font-size: 13px; margin: 0 0 15px; }
+    .stack { display: flex; flex-direction: column; gap: 10px; }
+    .row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    .row button { flex: 0 0 auto; }
+    .host-panel { margin-top: 16px; }
+    .host-content { display: grid; grid-template-columns: 1fr 190px; gap: 20px; align-items: center; }
+    .pin { font-size: 31px; letter-spacing: 6px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 3px 0 7px; }
+    .subtle { color: var(--muted); font-size: 13px; }
+    #qrcode { width: 180px; min-height: 180px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 10px; display: grid; place-items: center; }
+    #qrcode img, #qrcode canvas { max-width: 100%; height: auto; }
+    .hidden { display: none !important; }
+    .section { margin-top: 18px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .section-head h2 { margin: 0; font-size: 18px; }
+    .connected-label { display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; padding: 5px 10px; background: #eaf8f0; color: var(--success); font-size: 12px; font-weight: 700; }
+    .connected-label::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #1a9b5c; }
+    .transfer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .drop-area { border: 1px dashed #aeb9c7; border-radius: 11px; padding: 16px; background: #fafbfd; }
+    .drop-area input[type=file] { border: 0; padding: 5px 0; background: transparent; }
+    .progress-wrap { margin-top: 12px; }
+    progress { width: 100%; height: 9px; accent-color: var(--accent); }
+    #progressLabel { color: var(--muted); font-size: 12px; margin-top: 3px; min-height: 18px; }
+    .history-list { display: flex; flex-direction: column; gap: 10px; }
+    .history-item { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: #fff; min-width: 0; }
+    .preview { width: 58px; height: 58px; border-radius: 8px; object-fit: cover; background: #f0f2f5; flex: 0 0 auto; }
+    .file-icon { width: 58px; height: 58px; border-radius: 8px; display: grid; place-items: center; background: #f0f3f7; color: #596579; font-size: 11px; font-weight: 800; flex: 0 0 auto; }
+    .history-main { min-width: 0; flex: 1; }
+    .history-name { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+    .history-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .history-actions { display: flex; gap: 7px; flex: 0 0 auto; }
+    .history-actions a { font-size: 13px; }
+    .empty { border: 1px dashed var(--line); color: var(--muted); padding: 25px 14px; text-align: center; border-radius: 11px; font-size: 13px; background: #fff; }
+    .footnote { color: var(--muted); font-size: 12px; margin-top: 16px; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 20; padding: 18px; display: flex; align-items: center; justify-content: center; background: #11182788; }
+    .modal { width: min(460px, 100%); background: #fff; border-radius: 16px; padding: 22px; box-shadow: 0 18px 55px #0003; }
+    .modal h2 { margin: 0 0 10px; font-size: 20px; }
+    .modal p, .modal li { color: #4f5966; font-size: 14px; }
+    .modal ul { padding-left: 20px; margin: 10px 0 18px; }
+    .modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 18px; }
+    .modal-actions button { min-width: 110px; }
+    .device-card { padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: #f8fafc; margin: 14px 0; }
+    .device-card strong { display: block; font-size: 16px; }
+    .device-card span { color: var(--muted); font-size: 13px; }
+    @media (max-width: 680px) {
+      .page { width: min(100% - 20px, 560px); padding-top: 17px; }
+      header { align-items: flex-start; }
+      .privacy-note { max-width: 125px; }
+      .grid, .transfer-grid { grid-template-columns: 1fr; }
+      .host-content { grid-template-columns: 1fr; }
+      #qrcode { margin: 0 auto; }
+      .pin { font-size: 28px; }
+      .history-item { align-items: flex-start; flex-wrap: wrap; }
+      .history-actions { width: 100%; padding-left: 70px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">Q</div>
+        <div>
+          <h1>QuickDrop</h1>
+          <p class="tagline">近くの端末とファイル・テキストを直接共有</p>
+        </div>
+      </div>
+      <div class="privacy-note">1対1の一時接続<br>接続ごとに相手を承認</div>
+    </header>
+
+    <div id="statusBanner" class="status info" role="status" aria-live="polite">利用規約に同意すると利用できます。</div>
+
+    <section class="grid" id="connectionChoices">
+      <div class="panel">
+        <h2>受け入れ側になる</h2>
+        <p class="description">PINとQRコードを発行します。接続してくる端末を確認してから承認できます。</p>
+        <button id="startHostBtn" type="button" class="start-button">PINを発行して待機</button>
+      </div>
+      <div class="panel">
+        <h2>相手に接続する</h2>
+        <p class="description">相手の画面に表示された6桁のPINを入力してください。</p>
+        <div class="stack">
+          <input id="guestPin" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6桁のPIN" aria-label="6桁のPIN">
+          <button id="connectBtn" type="button">接続を申請</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="hostPanel" class="panel host-panel hidden">
+      <div class="section-head">
+        <h2>接続待機中</h2>
+        <button id="stopHostBtn" class="secondary" type="button">待機を終了</button>
+      </div>
+      <div class="host-content">
+        <div>
+          <div class="subtle">相手にこのPINを伝えてください</div>
+          <div id="hostPin" class="pin">------</div>
+          <div class="subtle">有効期限：<strong id="expiryLabel">5:00</strong>（発行から5分）</div>
+          <p class="subtle">QRコードを読み取ると、接続画面にPINが入力されます。接続後は相手を確認して承認してください。</p>
+          <button id="copyLinkBtn" class="secondary" type="button">接続リンクをコピー</button>
+        </div>
+        <div id="qrcode" aria-label="接続用QRコード"></div>
+      </div>
+    </section>
+
+    <section id="transferPanel" class="panel section hidden">
+      <div class="section-head">
+        <h2>ファイルを送受信</h2>
+        <span class="connected-label">接続中</span>
+      </div>
+      <p id="connectedPeerLabel" class="description">相手と接続しています。</p>
+      <div class="transfer-grid">
+        <div class="drop-area">
+          <h2>ファイル・写真</h2>
+          <p class="description">写真、動画、書類などを選択して送信します。ファイル名と形式を保ったまま転送します。</p>
+          <input id="fileInput" type="file" multiple aria-label="送信するファイルを選択">
+          <div class="row" style="margin-top:10px">
+            <button id="sendFilesBtn" type="button">選択したファイルを送信</button>
+          </div>
+        </div>
+        <div class="drop-area">
+          <h2>テキスト</h2>
+          <p class="description">短いメモやURLなどを送れます。</p>
+          <textarea id="textInput" placeholder="送信するテキストを入力"></textarea>
+          <div class="row" style="margin-top:10px">
+            <button id="sendTextBtn" type="button">テキストを送信</button>
+          </div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <progress id="transferProgress" max="100" value="0"></progress>
+        <div id="progressLabel" aria-live="polite">転送待機中</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>転送履歴</h2>
+        <button id="clearHistoryBtn" class="secondary" type="button">履歴を消去</button>
+      </div>
+      <p class="description">この端末で送受信したファイルは、この一覧からもう一度ダウンロードできます。履歴はこのブラウザー内に保存されます。</p>
+      <div id="historyList" class="history-list">
+        <div class="empty">まだ転送履歴はありません。</div>
+      </div>
+      <p class="footnote">ファイル本体はこの端末のブラウザー保存領域（IndexedDB）に保存します。ブラウザーデータを消去すると履歴も消える場合があります。</p>
+    </section>
+
+    <p class="footnote">QuickDropはPeerJSを使って接続を仲介し、ファイル本体はWebRTCのデータ通信で端末間に送ります。接続にはHTTPSまたはlocalhost環境が必要です。</p>
+  </main>
+
+  <div id="termsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
+    <div class="modal">
+      <h2 id="termsTitle">QuickDropの利用について</h2>
+      <p>利用する前に、次の点を確認してください。</p>
+      <ul>
+        <li>自分が共有する権利を持つファイルだけを送信してください。</li>
+        <li>知らない相手からの接続申請は承認しないでください。</li>
+        <li>接続PINは一時的なものですが、第三者に公開しないでください。</li>
+        <li>ファイル履歴はこのブラウザー内に保存されます。共有端末では履歴を消去してください。</li>
+      </ul>
+      <p>接続の確立にはPeerJSのシグナリングサービスを利用します。ネットワーク環境によっては接続できない場合があります。</p>
+      <div class="modal-actions">
+        <button id="agreeTermsBtn" type="button">同意して続ける</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="requestModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="requestTitle">
+    <div class="modal">
+      <h2 id="requestTitle">接続リクエスト</h2>
+      <p>次の端末から接続申請が届いています。相手を確認してから承認してください。</p>
+      <div class="device-card">
+        <strong id="requestDeviceName">不明な端末</strong>
+        <span id="requestDeviceType">端末情報なし</span>
+      </div>
+      <div class="modal-actions">
+        <button id="rejectRequestBtn" class="danger" type="button">拒否</button>
+        <button id="acceptRequestBtn" type="button">承認する</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const PREFIX = 'quickdrop-jp-onetime-';
+      const SESSION_MS = 5 * 60 * 1000;
+      const CHUNK_SIZE = 32 * 1024; // 32KBずつ送り、各チャンクの受信確認を待つ
+      const MAX_FILE_SIZE = 200 * 1024 * 1024;
+      const MAX_HISTORY = 100;
+      const DB_NAME = 'quickdrop-local-history';
+      const DB_STORE = 'transfers';
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        status: $('statusBanner'), connectionChoices: $('connectionChoices'),
+        startHostBtn: $('startHostBtn'), connectBtn: $('connectBtn'), guestPin: $('guestPin'),
+        hostPanel: $('hostPanel'), hostPin: $('hostPin'), qrcode: $('qrcode'), expiryLabel: $('expiryLabel'),
+        stopHostBtn: $('stopHostBtn'), copyLinkBtn: $('copyLinkBtn'), transferPanel: $('transferPanel'),
+        connectedPeerLabel: $('connectedPeerLabel'), fileInput: $('fileInput'), sendFilesBtn: $('sendFilesBtn'),
+        textInput: $('textInput'), sendTextBtn: $('sendTextBtn'), progress: $('transferProgress'),
+        progressLabel: $('progressLabel'), historyList: $('historyList'), clearHistoryBtn: $('clearHistoryBtn'),
+        termsModal: $('termsModal'), agreeTermsBtn: $('agreeTermsBtn'), requestModal: $('requestModal'),
+        requestDeviceName: $('requestDeviceName'), requestDeviceType: $('requestDeviceType'),
+        acceptRequestBtn: $('acceptRequestBtn'), rejectRequestBtn: $('rejectRequestBtn')
+      };
+
+      let peer = null;
+      let mode = null;
+      let hostPin = null;
+      let hostLink = '';
+      let expiryAt = 0;
+      let expiryInterval = null;
+      let pendingConnection = null;
+      let activeConnection = null;
+      let incomingFile = null;
+      let historyItems = [];
+      let dbPromise = null;
+      let dbAvailable = true;
+      let isSending = false;
+      const objectUrls = new Map();
+      const awaitingAcks = new Map();
+      const chunkAcks = new Map();
+
+      function setStatus(message, type = 'info') {
+        els.status.textContent = message;
+        els.status.className = `status ${type}`;
+      }
+
+      function setTransferProgress(value, label) {
+        els.progress.value = Math.max(0, Math.min(100, value));
+        els.progressLabel.textContent = label;
+      }
+
+      function makeId() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      }
+
+      function makePin() {
+        const values = new Uint32Array(1);
+        if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(values);
+        else values[0] = Math.floor(Math.random() * 0xffffffff);
+        return String(100000 + (values[0] % 900000));
+      }
+
+      function getDeviceType() {
+        const ua = navigator.userAgent || '';
+        if (/iPad|Tablet|PlayBook|Silk/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return 'タブレット';
+        if (/Mobi|iPhone|Android/i.test(ua)) return 'スマートフォン';
+        return 'コンピューター';
+      }
+
+      function getDeviceName() {
+        const ua = navigator.userAgent || '';
+        if (/iPhone/i.test(ua)) return 'iPhone';
+        if (/iPad/i.test(ua)) return 'iPad';
+        if (/Android/i.test(ua)) return 'Android端末';
+        if (/Macintosh|Mac OS/i.test(ua)) return 'Mac';
+        if (/Windows/i.test(ua)) return 'Windows PC';
+        if (/Linux/i.test(ua)) return 'Linux端末';
+        return '端末';
+      }
+
+      function makeConnectionLink(pin) {
+        const url = new URL(window.location.href);
+        url.search = '';
+        url.hash = '';
+        url.searchParams.set('pin', pin);
+        return url.toString();
+      }
+
+      function showHostQr(link) {
+        els.qrcode.replaceChildren();
+        if (window.QRCode) {
+          new QRCode(els.qrcode, {
+            text: link,
+            width: 164,
+            height: 164,
+            colorDark: '#17202b',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          els.qrcode.textContent = 'QRコードを読み込めません。接続リンクをコピーしてください。';
+        }
+      }
+
+      function setConnected(connected, label = '') {
+        els.transferPanel.classList.toggle('hidden', !connected);
+        els.connectionChoices.classList.toggle('hidden', connected);
+        if (connected) {
+          els.connectedPeerLabel.textContent = label || '相手と接続しています。';
+          setStatus('相手と接続しました。ファイルやテキストを送受信できます。', 'success');
+        } else {
+          els.connectedPeerLabel.textContent = '';
+        }
+      }
+
+      function disableConnectionButtons(disabled) {
+        els.startHostBtn.disabled = disabled;
+        els.connectBtn.disabled = disabled;
+      }
+
+      function cleanupPeer() {
+        if (expiryInterval) clearInterval(expiryInterval);
+        expiryInterval = null;
+        if (pendingConnection) {
+          try { pendingConnection.close(); } catch (_) {}
+          pendingConnection = null;
+        }
+        if (activeConnection) {
+          try { activeConnection.close(); } catch (_) {}
+          activeConnection = null;
+        }
+        for (const [key, resolve] of chunkAcks.entries()) { resolve(false); chunkAcks.delete(key); }
+        for (const [id, resolve] of awaitingAcks.entries()) { resolve(false); awaitingAcks.delete(id); }
+        if (peer) {
+          try { peer.destroy(); } catch (_) {}
+          peer = null;
+        }
+        incomingFile = null;
+        mode = null;
+        hostPin = null;
+        expiryAt = 0;
+        els.requestModal.classList.add('hidden');
+        els.hostPanel.classList.add('hidden');
+        setConnected(false);
+        disableConnectionButtons(false);
+      }
+
+      function startHost() {
+        if (peer) return;
+        if (!window.Peer) {
+          setStatus('PeerJSを読み込めませんでした。通信環境を確認してページを再読み込みしてください。', 'error');
+          return;
+        }
+        if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+          setStatus('安全な接続が必要です。HTTPSのURLでこのページを開いてください。', 'error');
+          return;
+        }
+
+        disableConnectionButtons(true);
+        setStatus('一時PINを発行しています…');
+        let attempts = 0;
+
+        const createAttempt = () => {
+          attempts += 1;
+          const pin = makePin();
+          const newPeer = new Peer(PREFIX + pin);
+          let opened = false;
+          newPeer.on('open', () => {
+            opened = true;
+            peer = newPeer;
+            mode = 'host';
+            hostPin = pin;
+            expiryAt = Date.now() + SESSION_MS;
+            hostLink = makeConnectionLink(pin);
+            els.hostPin.textContent = pin;
+            els.hostPanel.classList.remove('hidden');
+            showHostQr(hostLink);
+            setStatus('PINを発行しました。相手の接続申請を待っています。', 'success');
+            startExpiryCountdown();
+          });
+          newPeer.on('connection', handleIncomingConnection);
+          newPeer.on('error', (err) => {
+            if (!opened && err && err.type === 'unavailable-id' && attempts < 6) {
+              try { newPeer.destroy(); } catch (_) {}
+              createAttempt();
+              return;
+            }
+            console.error('PeerJS host error:', err);
+            if (mode === 'host') setStatus('接続に問題が発生しました。待機を終了して、もう一度お試しください。', 'error');
+            else {
+              disableConnectionButtons(false);
+              setStatus('PINを発行できませんでした。時間をおいて再度お試しください。', 'error');
+              try { newPeer.destroy(); } catch (_) {}
+            }
+          });
+          newPeer.on('disconnected', () => {
+            if (mode === 'host' && Date.now() < expiryAt) {
+              setStatus('接続サーバーとの通信が切れました。ページを再読み込みして再度お試しください。', 'error');
+            }
+          });
+        };
+        createAttempt();
+      }
+
+      function startExpiryCountdown() {
+        if (expiryInterval) clearInterval(expiryInterval);
+        const tick = () => {
+          const remaining = Math.max(0, expiryAt - Date.now());
+          const minutes = Math.floor(remaining / 60000);
+          const seconds = Math.floor((remaining % 60000) / 1000);
+          els.expiryLabel.textContent = `${minutes}:${String(seconds).padStart(2, '0')}`;
+          if (remaining <= 0) {
+            cleanupPeer();
+            setStatus('PINの有効期限が切れました。必要なら新しいPINを発行してください。');
+          }
+        };
+        tick();
+        expiryInterval = setInterval(tick, 1000);
+      }
+
+      function stopHost() {
+        cleanupPeer();
+        setStatus('待機を終了しました。');
+      }
+
+      function connectAsGuest() {
+        if (peer) return;
+        if (!window.Peer) {
+          setStatus('PeerJSを読み込めませんでした。ページを再読み込みしてください。', 'error');
+          return;
+        }
+        if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+          setStatus('安全な接続が必要です。HTTPSのURLでこのページを開いてください。', 'error');
+          return;
+        }
+        const pin = els.guestPin.value.replace(/\D/g, '').slice(0, 6);
+        els.guestPin.value = pin;
+        if (!/^\d{6}$/.test(pin)) {
+          setStatus('6桁のPINを入力してください。', 'error');
+          return;
+        }
+
+        disableConnectionButtons(true);
+        mode = 'guest';
+        setStatus('相手に接続しています…');
+        const guestPeer = new Peer();
+        peer = guestPeer;
+        guestPeer.on('open', () => {
+          const conn = guestPeer.connect(PREFIX + pin, {
+            serialization: 'binary',
+            reliable: true,
+            metadata: { deviceName: getDeviceName(), deviceType: getDeviceType() }
+          });
+          activeConnection = conn;
+          conn.on('open', () => {
+            setStatus('接続申請を送りました。相手が承認するまでお待ちください。');
+          });
+          conn.on('data', (packet) => handlePacket(packet, conn));
+          conn.on('close', () => handleConnectionClosed(conn));
+          conn.on('error', (err) => {
+            console.error('PeerJS connection error:', err);
+            if (mode === 'guest') setStatus('相手に接続できませんでした。PINと有効期限を確認してください。', 'error');
+          });
+        });
+        guestPeer.on('error', (err) => {
+          console.error('PeerJS guest error:', err);
+          setStatus('接続に失敗しました。PIN、有効期限、ネットワークを確認してください。', 'error');
+          cleanupPeer();
+        });
+      }
+
+      function handleIncomingConnection(conn) {
+        if (mode !== 'host' || Date.now() >= expiryAt) {
+          try { conn.close(); } catch (_) {}
+          return;
+        }
+        if (pendingConnection || activeConnection) {
+          conn.on('open', () => {
+            try { conn.send({ type: 'busy' }); } catch (_) {}
+            setTimeout(() => { try { conn.close(); } catch (_) {} }, 250);
+          });
+          return;
+        }
+        pendingConnection = conn;
+        conn.on('open', () => {
+          if (pendingConnection !== conn) return;
+          const info = conn.metadata || {};
+          els.requestDeviceName.textContent = info.deviceName || '不明な端末';
+          els.requestDeviceType.textContent = info.deviceType || '端末の種類は取得できませんでした';
+          els.requestModal.classList.remove('hidden');
+          setStatus('接続申請が届きました。相手を確認してください。');
+        });
+        conn.on('close', () => {
+          if (pendingConnection === conn) {
+            pendingConnection = null;
+            els.requestModal.classList.add('hidden');
+            setStatus('接続申請が取り消されました。引き続き待機しています。');
+          }
+        });
+        conn.on('error', (err) => console.warn('Incoming connection error:', err));
+      }
+
+      function acceptRequest() {
+        const conn = pendingConnection;
+        if (!conn || !conn.open || activeConnection) return;
+        pendingConnection = null;
+        activeConnection = conn;
+        els.requestModal.classList.add('hidden');
+        conn.on('data', (packet) => handlePacket(packet, conn));
+        conn.on('close', () => handleConnectionClosed(conn));
+        conn.on('error', (err) => console.warn('Active connection error:', err));
+        try { conn.send({ type: 'approved' }); } catch (err) { console.error(err); }
+        const info = conn.metadata || {};
+        setConnected(true, `${info.deviceName || '相手の端末'} と接続中`);
+      }
+
+      function rejectRequest() {
+        const conn = pendingConnection;
+        pendingConnection = null;
+        els.requestModal.classList.add('hidden');
+        if (conn && conn.open) {
+          try { conn.send({ type: 'rejected' }); } catch (_) {}
+          setTimeout(() => { try { conn.close(); } catch (_) {} }, 250);
+        }
+        setStatus('接続申請を拒否しました。引き続き待機しています。');
+      }
+
+      function handleConnectionClosed(conn) {
+        if (conn !== activeConnection) return;
+        activeConnection = null;
+        incomingFile = null;
+        for (const [id, resolve] of awaitingAcks.entries()) {
+          resolve(false);
+          awaitingAcks.delete(id);
+        }
+        for (const [key, resolve] of chunkAcks.entries()) {
+          resolve(false);
+          chunkAcks.delete(key);
+        }
+        setConnected(false);
+        setTransferProgress(0, '接続が終了しました。');
+        if (mode === 'host' && peer && Date.now() < expiryAt) {
+          setStatus('相手との接続が終了しました。PINの有効期限内であれば、別の申請を受け付けられます。');
+        } else if (mode === 'guest') {
+          setStatus('相手との接続が終了しました。', 'info');
+          cleanupPeer();
+        }
+      }
+
+      function handlePacket(packet, conn) {
+        if (!packet || typeof packet !== 'object') return;
+        if (packet.type === 'approved' && mode === 'guest') {
+          setConnected(true, '相手の端末と接続中');
+          return;
+        }
+        if (packet.type === 'rejected' && mode === 'guest') {
+          setStatus('接続申請は相手に拒否されました。', 'error');
+          cleanupPeer();
+          return;
+        }
+        if (packet.type === 'busy' && mode === 'guest') {
+          setStatus('相手は別の端末と接続中です。後でもう一度お試しください。', 'error');
+          cleanupPeer();
+          return;
+        }
+        if (packet.type === 'file-start') {
+          receiveFileStart(packet);
+        } else if (packet.type === 'file-chunk') {
+          receiveFileChunk(packet, conn);
+        } else if (packet.type === 'file-chunk-ack') {
+          const key = `${packet.id}:${packet.index}`;
+          const resolver = chunkAcks.get(key);
+          if (resolver) {
+            chunkAcks.delete(key);
+            resolver(true);
+          }
+        } else if (packet.type === 'file-end') {
+          finishIncomingFile(packet, conn);
+        } else if (packet.type === 'file-received') {
+          const resolver = awaitingAcks.get(packet.id);
+          if (resolver) {
+            awaitingAcks.delete(packet.id);
+            resolver(true);
+          }
+        } else if (packet.type === 'text') {
+          receiveText(packet);
+        } else if (packet.type === 'transfer-error') {
+          setStatus(packet.message || '相手側でファイルを受信できませんでした。', 'error');
+        }
+      }
+
+      function receiveFileStart(packet) {
+        const valid = typeof packet.id === 'string' && typeof packet.name === 'string' &&
+          Number.isFinite(packet.size) && packet.size >= 0 && packet.size <= MAX_FILE_SIZE &&
+          Number.isInteger(packet.totalChunks) && packet.totalChunks >= 1 && packet.totalChunks <= 30000;
+        if (!valid) {
+          try { activeConnection && activeConnection.send({ type: 'transfer-error', message: 'ファイル情報が不正か、上限サイズを超えています。' }); } catch (_) {}
+          setStatus('受信できないファイルです（最大200MB）。', 'error');
+          return;
+        }
+        incomingFile = {
+          id: packet.id,
+          name: packet.name,
+          size: packet.size,
+          type: typeof packet.fileType === 'string' ? packet.fileType : '',
+          lastModified: Number(packet.lastModified) || Date.now(),
+          totalChunks: packet.totalChunks,
+          chunks: new Array(packet.totalChunks),
+          receivedIndexes: new Set(),
+          receivedBytes: 0
+        };
+        setTransferProgress(0, `受信中：${packet.name}`);
+      }
+
+      function receiveFileChunk(packet, conn) {
+        const file = incomingFile;
+        if (!file || packet.id !== file.id ||
+            !Number.isInteger(packet.index) || packet.index < 0 || packet.index >= file.totalChunks ||
+            file.receivedIndexes.has(packet.index)) return;
+
+        try {
+          let bytes;
+          if (packet.chunk instanceof ArrayBuffer) {
+            bytes = new Uint8Array(packet.chunk);
+          } else if (ArrayBuffer.isView(packet.chunk)) {
+            bytes = new Uint8Array(packet.chunk.buffer, packet.chunk.byteOffset, packet.chunk.byteLength);
+          } else {
+            throw new Error('受信したデータ形式が正しくありません。');
+          }
+
+          file.chunks[packet.index] = bytes;
+          file.receivedIndexes.add(packet.index);
+          file.receivedBytes += bytes.byteLength;
+
+          const percent = file.size === 0 ? 100 : (file.receivedBytes / file.size) * 100;
+          setTransferProgress(
+            percent,
+            `受信中：${file.name}（${formatBytes(file.receivedBytes)} / ${formatBytes(file.size)}）`
+          );
+
+          // チャンクをメモリに受け取った後、送信側へ受信確認を返す。
+          if (conn && conn.open) {
+            conn.send({ type: 'file-chunk-ack', id: file.id, index: packet.index });
+          }
+        } catch (err) {
+          console.error('Chunk receive failed:', err);
+          incomingFile = null;
+          try {
+            if (conn && conn.open) {
+              conn.send({ type: 'transfer-error', message: 'ファイルの一部を受信できませんでした。もう一度送信してください。' });
+            }
+          } catch (_) {}
+          setStatus('受信データを処理できませんでした。接続し直して再送してください。', 'error');
+        }
+      }
+
+      async function finishIncomingFile(packet, conn) {
+        const file = incomingFile;
+        if (!file || packet.id !== file.id) return;
+        if (file.receivedIndexes.size !== file.totalChunks || file.receivedBytes !== file.size) {
+          incomingFile = null;
+          setStatus(`「${file.name}」の受信が不完全でした。もう一度送信してください。`, 'error');
+          return;
+        }
+        const blob = new Blob(file.chunks, { type: file.type || '' });
+        const record = {
+          id: file.id,
+          direction: 'received',
+          kind: 'file',
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: blob.size,
+          time: Date.now(),
+          blob
+        };
+        incomingFile = null;
+        await saveHistoryRecord(record);
+        try { if (conn && conn.open) conn.send({ type: 'file-received', id: file.id }); } catch (_) {}
+        setTransferProgress(100, `受信完了：${file.name}`);
+        setStatus(`「${file.name}」を受信しました。下の転送履歴からダウンロードできます。`, 'success');
+      }
+
+      async function receiveText(packet) {
+        if (typeof packet.text !== 'string') return;
+        const blob = new Blob([packet.text], { type: 'text/plain;charset=utf-8' });
+        const record = {
+          id: packet.id || makeId(),
+          direction: 'received',
+          kind: 'text',
+          name: '受信テキスト.txt',
+          type: 'text/plain;charset=utf-8',
+          size: blob.size,
+          time: Date.now(),
+          preview: packet.text.slice(0, 180),
+          blob
+        };
+        await saveHistoryRecord(record);
+        setStatus('テキストを受信しました。転送履歴から保存できます。', 'success');
+      }
+
+      function sendPacket(packet) {
+        if (!activeConnection || !activeConnection.open) {
+          throw new Error('接続されていません。');
+        }
+        activeConnection.send(packet);
+      }
+
+      function waitForChunkAck(id, index, timeoutMs = 30000) {
+        const key = `${id}:${index}`;
+        return new Promise(resolve => {
+          const timer = setTimeout(() => {
+            chunkAcks.delete(key);
+            resolve(false);
+          }, timeoutMs);
+          chunkAcks.set(key, (ok) => {
+            clearTimeout(timer);
+            resolve(ok);
+          });
+        });
+      }
+
+      function waitForFileAck(id, timeoutMs = 45000) {
+        return new Promise(resolve => {
+          const timer = setTimeout(() => {
+            awaitingAcks.delete(id);
+            resolve(false);
+          }, timeoutMs);
+          awaitingAcks.set(id, (ok) => {
+            clearTimeout(timer);
+            resolve(ok);
+          });
+        });
+      }
+
+      async function sendOneFile(file) {
+        if (file.size > MAX_FILE_SIZE) {
+          throw new Error(`${file.name} は200MBを超えているため送信できません。`);
+        }
+
+        const id = makeId();
+        const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+        const conn = activeConnection;
+
+        sendPacket({
+          type: 'file-start',
+          id,
+          name: file.name,
+          size: file.size,
+          fileType: file.type || '',
+          lastModified: file.lastModified || Date.now(),
+          totalChunks
+        });
+
+        for (let index = 0; index < totalChunks; index++) {
+          if (!conn || !conn.open) {
+            throw new Error('転送中に接続が切れました。');
+          }
+
+          const start = index * CHUNK_SIZE;
+          const end = Math.min(file.size, start + CHUNK_SIZE);
+          const buffer = await file.slice(start, end).arrayBuffer();
+          const ackPromise = waitForChunkAck(id, index);
+
+          // PeerJSのBinaryPackでArrayBufferを直接送信。Base64変換は行わない。
+          conn.send({ type: 'file-chunk', id, index, chunk: buffer });
+
+          const acknowledged = await ackPromise;
+          if (!acknowledged) {
+            throw new Error(`${file.name} の一部を受信側が確認できませんでした。通信状態を確認して再送してください。`);
+          }
+
+          const sent = Math.min(end, file.size);
+          const percent = file.size === 0 ? 100 : (sent / file.size) * 100;
+          setTransferProgress(
+            percent,
+            `送信中：${file.name}（${formatBytes(sent)} / ${formatBytes(file.size)}）`
+          );
+        }
+
+        const ackPromise = waitForFileAck(id);
+        sendPacket({ type: 'file-end', id });
+        const received = await ackPromise;
+
+        if (!received) {
+          throw new Error(`${file.name} の受信完了確認が取れませんでした。相手側の受信履歴を確認してください。`);
+        }
+
+        await saveHistoryRecord({
+          id,
+          direction: 'sent',
+          kind: 'file',
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          time: Date.now(),
+          blob: file
+        });
+      }
+
+      async function sendSelectedFiles() {
+        if (isSending) return;
+        if (!activeConnection || !activeConnection.open) {
+          setStatus('先に相手と接続してください。', 'error');
+          return;
+        }
+        const files = Array.from(els.fileInput.files || []);
+        if (!files.length) {
+          setStatus('送信するファイルを選択してください。', 'error');
+          return;
+        }
+        isSending = true;
+        els.sendFilesBtn.disabled = true;
+        try {
+          for (const file of files) {
+            await sendOneFile(file);
+          }
+          setTransferProgress(100, `${files.length}件のファイルを送信しました。`);
+          setStatus('ファイルの送信が完了しました。', 'success');
+          els.fileInput.value = '';
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || 'ファイルの送信に失敗しました。', 'error');
+        } finally {
+          isSending = false;
+          els.sendFilesBtn.disabled = false;
+        }
+      }
+
+      async function sendText() {
+        if (!activeConnection || !activeConnection.open) {
+          setStatus('先に相手と接続してください。', 'error');
+          return;
+        }
+        const text = els.textInput.value;
+        if (!text.trim()) {
+          setStatus('送信するテキストを入力してください。', 'error');
+          return;
+        }
+        try {
+          const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+          const id = makeId();
+          sendPacket({ type: 'text', id, text });
+          await saveHistoryRecord({
+            id, direction: 'sent', kind: 'text', name: '送信テキスト.txt',
+            type: 'text/plain;charset=utf-8', size: blob.size, time: Date.now(),
+            preview: text.slice(0, 180), blob
+          });
+          els.textInput.value = '';
+          setStatus('テキストを送信しました。', 'success');
+        } catch (err) {
+          setStatus(err.message || 'テキストを送信できませんでした。', 'error');
+        }
+      }
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+      }
+
+      function formatDate(time) {
+        return new Intl.DateTimeFormat('ja-JP', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        }).format(new Date(time));
+      }
+
+      function openDatabase() {
+        if (!('indexedDB' in window)) return Promise.reject(new Error('IndexedDB is unavailable'));
+        if (dbPromise) return dbPromise;
+        dbPromise = new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, 1);
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE, { keyPath: 'id' });
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error || new Error('Database open failed'));
+          request.onblocked = () => reject(new Error('Database is blocked'));
+        });
+        return dbPromise;
+      }
+
+      async function dbPut(record) {
+        const db = await openDatabase();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_STORE, 'readwrite');
+          tx.objectStore(DB_STORE).put(record);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error || new Error('Database write failed'));
+          tx.onabort = () => reject(tx.error || new Error('Database write aborted'));
+        });
+      }
+
+      async function dbGetAll() {
+        const db = await openDatabase();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_STORE, 'readonly');
+          const req = tx.objectStore(DB_STORE).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error || new Error('Database read failed'));
+        });
+      }
+
+      async function dbClear() {
+        const db = await openDatabase();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_STORE, 'readwrite');
+          tx.objectStore(DB_STORE).clear();
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error || new Error('Database clear failed'));
+        });
+      }
+
+      async function saveHistoryRecord(record) {
+        historyItems = [record, ...historyItems.filter(item => item.id !== record.id)].slice(0, MAX_HISTORY);
+        try {
+          await dbPut(record);
+          dbAvailable = true;
+          // 古い履歴を一定件数に保つ
+          const all = await dbGetAll();
+          if (all.length > MAX_HISTORY) {
+            const old = all.sort((a, b) => b.time - a.time).slice(MAX_HISTORY);
+            const db = await openDatabase();
+            await new Promise((resolve) => {
+              const tx = db.transaction(DB_STORE, 'readwrite');
+              const store = tx.objectStore(DB_STORE);
+              old.forEach(item => store.delete(item.id));
+              tx.oncomplete = resolve;
+              tx.onerror = resolve;
+            });
+          }
+        } catch (err) {
+          dbAvailable = false;
+          console.warn('Could not persist transfer history:', err);
+        }
+        renderHistory();
+      }
+
+      function revokeObjectUrl(id) {
+        const url = objectUrls.get(id);
+        if (url) {
+          URL.revokeObjectURL(url);
+          objectUrls.delete(id);
+        }
+      }
+
+      function makeHistoryUrl(item) {
+        if (!item.blob) return null;
+        if (!objectUrls.has(item.id)) objectUrls.set(item.id, URL.createObjectURL(item.blob));
+        return objectUrls.get(item.id);
+      }
+
+      function renderHistory() {
+        els.historyList.replaceChildren();
+        if (!historyItems.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = 'まだ転送履歴はありません。';
+          els.historyList.appendChild(empty);
+          return;
+        }
+        for (const item of historyItems) {
+          const row = document.createElement('article');
+          row.className = 'history-item';
+          const url = makeHistoryUrl(item);
+          if (item.type && item.type.startsWith('image/') && url) {
+            const img = document.createElement('img');
+            img.className = 'preview';
+            img.src = url;
+            img.alt = '写真プレビュー';
+            img.onerror = () => { img.replaceWith(makeFileIcon(item.name)); };
+            row.appendChild(img);
+          } else {
+            row.appendChild(makeFileIcon(item.name));
+          }
+
+          const main = document.createElement('div');
+          main.className = 'history-main';
+          const name = document.createElement('div');
+          name.className = 'history-name';
+          name.textContent = item.name || '名称未設定';
+          const meta = document.createElement('div');
+          meta.className = 'history-meta';
+          meta.textContent = `${item.direction === 'received' ? '受信' : '送信'} ・ ${formatBytes(item.size || 0)} ・ ${formatDate(item.time)}`;
+          main.append(name, meta);
+          if (item.kind === 'text' && item.preview) {
+            const preview = document.createElement('div');
+            preview.className = 'history-meta';
+            preview.textContent = item.preview;
+            main.appendChild(preview);
+          }
+          row.appendChild(main);
+
+          const actions = document.createElement('div');
+          actions.className = 'history-actions';
+          if (url) {
+            const link = document.createElement('a');
+            link.className = 'button-link';
+            link.href = url;
+            link.download = item.name || 'quickdrop-download';
+            link.textContent = 'ダウンロード';
+            link.setAttribute('aria-label', `${item.name || 'ファイル'}をダウンロード`);
+            actions.appendChild(link);
+
+            // iPhone/iPadでは共有シート経由で「ファイルに保存」「写真に保存」を選べるようにする。
+            if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function') {
+              const shareButton = document.createElement('button');
+              shareButton.type = 'button';
+              shareButton.className = 'secondary';
+              shareButton.textContent = '共有・保存';
+              shareButton.addEventListener('click', () => shareHistoryItem(item, url));
+              actions.appendChild(shareButton);
+            }
+          }
+          row.appendChild(actions);
+          els.historyList.appendChild(row);
+        }
+      }
+
+      async function shareHistoryItem(item, url) {
+        try {
+          const file = new File([item.blob], item.name || 'quickdrop-file', {
+            type: item.type || 'application/octet-stream',
+            lastModified: item.time || Date.now()
+          });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+            await navigator.share({ files: [file], title: item.name || 'QuickDropのファイル' });
+            setStatus('共有シートを開きました。保存先を選んでください。', 'success');
+            return;
+          }
+
+          // Web Share非対応ブラウザー用フォールバック
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = item.name || 'quickdrop-download';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+          console.error('Share/download failed:', err);
+          setStatus('保存を開始できませんでした。ダウンロードリンクをもう一度押してください。', 'error');
+        }
+      }
+
+      function makeFileIcon(name) {
+        const icon = document.createElement('div');
+        icon.className = 'file-icon';
+        const ext = (String(name || '').split('.').pop() || 'FILE').slice(0, 5).toUpperCase();
+        icon.textContent = ext;
+        return icon;
+      }
+
+      async function loadHistory() {
+        try {
+          const records = await dbGetAll();
+          historyItems = records.sort((a, b) => b.time - a.time).slice(0, MAX_HISTORY);
+          dbAvailable = true;
+        } catch (err) {
+          dbAvailable = false;
+          historyItems = [];
+          console.warn('History database is unavailable:', err);
+        }
+        renderHistory();
+      }
+
+      async function clearHistory() {
+        if (!confirm('このブラウザーに保存されている転送履歴とファイル本体をすべて削除しますか？')) return;
+        for (const id of objectUrls.keys()) revokeObjectUrl(id);
+        historyItems = [];
+        try { await dbClear(); } catch (err) { console.warn(err); }
+        renderHistory();
+        setStatus('このブラウザーの転送履歴を削除しました。');
+      }
+
+      function agreeToTerms() {
+        try { localStorage.setItem('quickdrop-terms-accepted-v1', 'yes'); } catch (_) {}
+        els.termsModal.classList.add('hidden');
+        setStatus('QuickDropを利用できます。受け入れ側になるか、相手のPINを入力してください。');
+      }
+
+      function initializeTerms() {
+        let accepted = false;
+        try { accepted = localStorage.getItem('quickdrop-terms-accepted-v1') === 'yes'; } catch (_) {}
+        if (!accepted) els.termsModal.classList.remove('hidden');
+        else setStatus('QuickDropを利用できます。受け入れ側になるか、相手のPINを入力してください。');
+      }
+
+      els.startHostBtn.addEventListener('click', startHost);
+      els.connectBtn.addEventListener('click', connectAsGuest);
+      els.guestPin.addEventListener('input', () => {
+        els.guestPin.value = els.guestPin.value.replace(/\D/g, '').slice(0, 6);
+      });
+      els.guestPin.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') connectAsGuest();
+      });
+      els.stopHostBtn.addEventListener('click', stopHost);
+      els.acceptRequestBtn.addEventListener('click', acceptRequest);
+      els.rejectRequestBtn.addEventListener('click', rejectRequest);
+      els.sendFilesBtn.addEventListener('click', sendSelectedFiles);
+      els.sendTextBtn.addEventListener('click', sendText);
+      els.clearHistoryBtn.addEventListener('click', clearHistory);
+      els.agreeTermsBtn.addEventListener('click', agreeToTerms);
+      els.copyLinkBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(hostLink);
+          setStatus('接続リンクをコピーしました。', 'success');
+        } catch (_) {
+          window.prompt('このリンクをコピーしてください', hostLink);
+        }
+      });
+
+      // QRコードから開かれた場合はPIN欄に入力しておく。自動接続はせず、利用者がボタンを押す。
+      const urlPin = new URLSearchParams(location.search).get('pin');
+      if (urlPin && /^\d{6}$/.test(urlPin)) els.guestPin.value = urlPin;
+
+      initializeTerms();
+      loadHistory();
+      window.addEventListener('beforeunload', () => {
+        for (const url of objectUrls.values()) URL.revokeObjectURL(url);
+        if (peer) {
+          try { peer.destroy(); } catch (_) {}
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
